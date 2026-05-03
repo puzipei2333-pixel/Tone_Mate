@@ -3,8 +3,9 @@ import Recorder from "./components/Recorder.jsx";
 import ResultPanel from "./components/ResultPanel.jsx";
 import TextInput from "./components/TextInput.jsx";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
-const ANALYZE_URL = API_BASE ? `${API_BASE}/api/analyze` : "/api/analyze";
+// 生产环境后端（Render）；本地开发若需代理可再改回环境变量或 Vite proxy
+const API_URL = "https://tone-mate-backend.onrender.com";
+const ANALYZE_URL = `${API_URL}/api/analyze`;
 const REQUEST_TIMEOUT_MS = 35_000;
 
 export default function App() {
