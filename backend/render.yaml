@@ -1,0 +1,29 @@
+# Render Blueprint：在 Render 控制台将「Root Directory」设为 backend，或把本文件置于仓库根目录并配置 rootDir。
+# 敏感变量请在 Dashboard 中填写，勿提交真实值。
+
+services:
+  - type: web
+    name: tone-calibration-api
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: XUNFEI_APP_ID
+        sync: false
+      - key: XUNFEI_API_KEY
+        sync: false
+      - key: XUNFEI_API_SECRET
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: DEEPSEEK_BASE_URL
+        sync: false
+      - key: DEEPSEEK_MODEL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: XUNFEI_WS_PROXY
+        sync: false
