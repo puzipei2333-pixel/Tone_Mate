@@ -130,6 +130,10 @@ def convert_audio_to_pcm(audio_bytes: bytes) -> bytes:
         return fast
 
     LOGGER.info("converting audio to PCM via ffmpeg, input_size=%s bytes", len(audio_bytes))
+    ffmpeg_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "ffmpeg"))
+    if not os.path.exists(ffmpeg_path):
+        ffmpeg_path = "ffmpeg"  # 本地开发时用系统的
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".input") as in_file:
         in_file.write(audio_bytes)
         input_path = Path(in_file.name)
@@ -137,7 +141,7 @@ def convert_audio_to_pcm(audio_bytes: bytes) -> bytes:
         output_path = Path(out_file.name)
 
     cmd = [
-        "ffmpeg",
+        ffmpeg_path,
         "-hide_banner",
         "-loglevel",
         "error",
