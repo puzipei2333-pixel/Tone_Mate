@@ -4,6 +4,12 @@
 接口：wss://ise-api.xfyun.cn/v2/open-ise
 鉴权：HMAC-SHA256，authorization / date / host 拼接到 URL query（见 build_auth_url）
 文档：https://www.xfyun.cn/doc/Ise/IseAPI.html
+
+流式上行与官方文档一致：
+1. 参数帧：business.cmd=ssb，data.status=0（首帧 common + business，无音频）
+2. 首块音频：business.cmd=auw，business.aus=1，data.status=1，data.data=base64(pcm)
+3. 中间块：cmd=auw，aus=2，data.status=1
+4. 结束：cmd=auw，aus=4，data.status=2，data.data=""（与官方 Java Demo 一致，尾帧不带音频）
 """
 from __future__ import annotations
 
@@ -37,14 +43,22 @@ XFYUN_HOST = "ise-api.xfyun.cn"
 XFYUN_PATH = "/v2/open-ise"
 XFYUN_WSS_BASE = f"wss://{XFYUN_HOST}{XFYUN_PATH}"
 
-# 评测业务参数（与文档 / 控制台一致）
-ISE_LANGUAGE = "zh_cn"
+# 评测业务参数（与文档「业务参数说明」及官方 Demo 一致；语言由 ent 等决定，勿传文档未列字段）
 ISE_CATEGORY = "read_sentence"
 ISE_ENT = "cn_vip"
 ISE_SUB = "ise"
 ISE_AUE = "raw"
 ISE_AUF = "audio/L16;rate=16000"
-ISE_RESULT_LEVEL = "entirety"
+
+# 评测严格度与详细度（声调评测优化）
+# - rst=entirety：返回完整结果（XML 含 sentence/word/syll/phone）；文档默认值即此
+# - ise_unite=1：开启全维度返回，是 extra_ability 生效的前置条件
+# - extra_ability=syll_phone_err_msg：返回声韵/调型错误信息，syll.dp_message 与 phone.perr_msg 更精确
+# - check_type=hard：仅中文引擎支持的严格度门限（easy / common / hard），声调对错判定更严
+ISE_RST = "entirety"
+ISE_ISE_UNITE = "1"
+ISE_EXTRA_ABILITY = "syll_phone_err_msg"
+ISE_CHECK_TYPE = "hard"
 
 
 def _strip_env_value(value: str | None) -> str:
@@ -289,23 +303,31 @@ def _parse_ise_xml(xml_text: str) -> dict[str, Any]:
 
 
 def _build_ssb_payload(app_id: str, ref_text: str) -> dict[str, Any]:
-    """流式首帧：参数上传 cmd=ssb。"""
+    """
+    流式首帧：参数上传（business.cmd=ssb，data.status=0）。字段与文档表及 Java Demo 对齐。
+
+    text 格式说明：
+    - 普通：直接传待评测中文，需在前面加 UTF-8 BOM（'\ufeff'）。
+    - 拼音标注：文档格式为 `pin1|pin2|...|<汉字串>`（如 `jin1|tian1|今天天气怎么样`），
+      声调用 1/2/3/4/5 数字附加；带拼音字数不得超过总字数 1/3。本服务不强制使用拼音标注，
+      若 ref_text 已是该格式，直接透传即可。
+    """
     return {
         "common": {"app_id": app_id},
         "business": {
-            "language": ISE_LANGUAGE,
             "category": ISE_CATEGORY,
             "ent": ISE_ENT,
             "sub": ISE_SUB,
             "aue": ISE_AUE,
             "auf": ISE_AUF,
-            # 文档中「完整结果」：部分示例为 result_level，部分为 rst，一并带上以兼容
-            "result_level": ISE_RESULT_LEVEL,
-            "rst": ISE_RESULT_LEVEL,
             "rstcd": "utf8",
             "tte": "utf-8",
             "ttp_skip": True,
             "cmd": "ssb",
+            "rst": ISE_RST,
+            "ise_unite": ISE_ISE_UNITE,
+            "extra_ability": ISE_EXTRA_ABILITY,
+            "check_type": ISE_CHECK_TYPE,
             "text": "\ufeff" + ref_text,
         },
         "data": {"status": 0, "data": ""},
