@@ -249,6 +249,76 @@ def _find_scored_read_sentence(root: ET.Element) -> ET.Element | None:
     return None
 
 
+def _safe_int(value: Any) -> int | None:
+    """安全转 int；接受 '0'/'16' 等数字串与负数串，非法返回 None。"""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+def _parse_syllable_with_tone(syll_elem: ET.Element) -> dict[str, Any] | None:
+    """
+    解析单个 <syll>，区分「音节级问题」和「声调级问题」。
+
+    数据来源（讯飞文档「中文评测返回参数说明」）：
+    - syll.dp_message：0 正常 / 16 漏读 / 32 增读 / 64 回读 / 128 替换（音节级）
+    - phone.is_yun：0 声母 / 1 韵母
+    - phone.perr_msg（is_yun=1 韵母）：0 韵母+调型均正确 / 1 韵母错 / 2 调型错 / 3 都错
+      （extra_ability=syll_phone_err_msg + ise_unite=1 时返回更稳定）
+
+    判定：
+    - syllable_error = (dp_message != 0)
+    - tone_error     = 任一韵母 phone 的 perr_msg ∈ {2, 3}
+    - tone_correct   = not syllable_error and not tone_error
+    """
+    attrs = syll_elem.attrib
+    symbol = attrs.get("symbol")
+    dp_message_raw = attrs.get("dp_message")
+    if not symbol or dp_message_raw is None:
+        return None
+
+    syllable_char = (
+        attrs.get("char")
+        or attrs.get("content")
+        or attrs.get("word")
+        or attrs.get("text")
+        or ""
+    )
+
+    dp_msg_int = _safe_int(dp_message_raw) or 0
+    has_syllable_error = dp_msg_int != 0
+
+    tone_error = False
+    for phone in syll_elem.iter():
+        if _strip_xml_namespace(phone.tag) != "phone":
+            continue
+        if phone.attrib.get("is_yun") != "1":
+            continue
+        perr_msg_int = _safe_int(phone.attrib.get("perr_msg"))
+        if perr_msg_int is None:
+            continue
+        if perr_msg_int in (2, 3):
+            tone_error = True
+            break
+
+    tone_correct = (not has_syllable_error) and (not tone_error)
+
+    return {
+        "char": syllable_char,
+        "pinyin": symbol,
+        "tone_correct": tone_correct,
+        "dp_message": str(dp_message_raw),
+        "tone_error": tone_error,
+        "syllable_error": has_syllable_error,
+    }
+
+
 def _parse_ise_xml(xml_text: str) -> dict[str, Any]:
     try:
         root = ET.fromstring(xml_text)
@@ -278,26 +348,9 @@ def _parse_ise_xml(xml_text: str) -> dict[str, Any]:
     for elem in read_sentence.iter():
         if _strip_xml_namespace(elem.tag) != "syll":
             continue
-        attrs = elem.attrib
-        symbol = attrs.get("symbol")
-        dp_message = attrs.get("dp_message")
-        if not symbol or dp_message is None:
-            continue
-        syllable_char = (
-            attrs.get("char")
-            or attrs.get("content")
-            or attrs.get("word")
-            or attrs.get("text")
-            or ""
-        )
-        syllables.append(
-            {
-                "char": syllable_char,
-                "pinyin": symbol,
-                "tone_correct": str(dp_message) == "0",
-                "dp_message": str(dp_message),
-            }
-        )
+        parsed = _parse_syllable_with_tone(elem)
+        if parsed:
+            syllables.append(parsed)
 
     return {"overall_tone_score": overall_tone_score, "syllables": syllables}
 
