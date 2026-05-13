@@ -5,7 +5,8 @@
 鉴权：HMAC-SHA256，authorization / date / host 拼接到 URL query（见 build_auth_url）
 文档：https://www.xfyun.cn/doc/Ise/IseAPI.html
 
-流式上行与官方文档一致：
+环境变量（可选）：
+- XUNFEI_DEBUG_SYLL_XML=1：解析 ISE 结果 XML 时，对每个 <syll> 输出 syll 与 <phone> 的完整属性（日志 + stdout，便于 Render 诊断）。
 1. 参数帧：business.cmd=ssb，data.status=0（首帧 common + business，无音频）
 2. 首块音频：business.cmd=auw，business.aus=1，data.status=1，data.data=base64(pcm)
 3. 中间块：cmd=auw，aus=2，data.status=1
