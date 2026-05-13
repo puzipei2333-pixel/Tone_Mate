@@ -249,6 +249,34 @@ def _find_scored_read_sentence(root: ET.Element) -> ET.Element | None:
     return None
 
 
+def _syll_phone_xml_debug_enabled() -> bool:
+    """设为 1/true/yes/on 时，在解析每个 <syll> 时输出完整属性与下属 <phone>（Render 日志可见）。"""
+    v = _strip_env_value(os.getenv("XUNFEI_DEBUG_SYLL_XML", "")).lower()
+    return v in ("1", "true", "yes", "on")
+
+
+def _log_syll_and_phone_xml(syll_elem: ET.Element) -> None:
+    """诊断：打印 syll 与所有子树中 phone 节点的 XML 属性（需 XUNFEI_DEBUG_SYLL_XML）。"""
+    if not _syll_phone_xml_debug_enabled():
+        return
+
+    ch = syll_elem.attrib.get("char", "N/A")
+    lines: list[str] = [
+        "=" * 60,
+        f"音节: {ch}",
+        f"  syll 属性: {json.dumps(dict(syll_elem.attrib), ensure_ascii=False)}",
+    ]
+    for phone in syll_elem.iter():
+        if _strip_xml_namespace(phone.tag) != "phone":
+            continue
+        lines.append(f"  phone 属性: {json.dumps(dict(phone.attrib), ensure_ascii=False)}")
+    lines.append("=" * 60)
+    # 单行写入日志，避免多请求交错；同时 print 便于本地终端直接看
+    block = "\n".join(lines)
+    LOGGER.info("Xunfei ISE syll/phone XML dump:\n%s", block)
+    print(block, flush=True)
+
+
 def _safe_int(value: Any) -> int | None:
     """安全转 int；接受 '0'/'16' 等数字串与负数串，非法返回 None。"""
     if value is None:
@@ -348,6 +376,7 @@ def _parse_ise_xml(xml_text: str) -> dict[str, Any]:
     for elem in read_sentence.iter():
         if _strip_xml_namespace(elem.tag) != "syll":
             continue
+        _log_syll_and_phone_xml(elem)
         parsed = _parse_syllable_with_tone(elem)
         if parsed:
             syllables.append(parsed)
