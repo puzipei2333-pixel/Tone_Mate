@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,100 @@ def _tone_label(digit: str | None) -> str:
         "5": "轻声",
     }
     return mapping.get(digit or "", "标准声调")
+
+
+def generate_practice_recommendation(syllables: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """
+    根据错误音节的目标声调分布，生成针对性练习推荐（规则模板，不调用大模型）。
+
+    返回字段与前端约定：
+        error_pattern, technique_tip, practice_words, practice_pinyin（与词一一对应）；
+        二三声混淆时额外返回 contrast_tip。
+    """
+    if not isinstance(syllables, list):
+        return None
+
+    error_tones: list[int] = []
+    for syll in syllables:
+        if not isinstance(syll, dict):
+            continue
+        if syll.get("tone_correct", True):
+            continue
+        py = _strip(str(syll.get("pinyin", "")))
+        digit_s = _last_tone_digit(py)
+        if digit_s and digit_s in "12345":
+            error_tones.append(int(digit_s))
+
+    if not error_tones:
+        return None
+
+    tone_counter = Counter(error_tones)
+    most_common_tone = tone_counter.most_common(1)[0][0]
+
+    tone_techniques: dict[int, dict[str, Any]] = {
+        1: {
+            "name": "第一声（阴平）",
+            "tip": (
+                "保持平稳高音，像唱「啦——」一样音高不变；想象在平地上走，不上坡也不下坡。"
+            ),
+            "practice_words": ["天空", "开心", "飞机"],
+            "practice_pinyin": ["tiān kōng", "kāi xīn", "fēi jī"],
+        },
+        2: {
+            "name": "第二声（阳平）",
+            "tip": (
+                "从低往高升，像问「啊？」时的语气；声音要一路往上走，不要中途停。"
+            ),
+            "practice_words": ["国家", "学习", "文明"],
+            "practice_pinyin": ["guó jiā", "xué xí", "wén míng"],
+        },
+        3: {
+            "name": "第三声（上声）",
+            "tip": (
+                "声音先往下压，再轻轻抬起来；不要一下掉下去，要先压低再回升。"
+                "像叹气后又打起精神：「哎——嗯！」"
+            ),
+            "practice_words": ["老虎", "旅游", "语法", "美好", "水果"],
+            "practice_pinyin": ["lǎo hǔ", "lǚ yóu", "yǔ fǎ", "měi hǎo", "shuǐ guǒ"],
+        },
+        4: {
+            "name": "第四声（去声）",
+            "tip": (
+                "从高快速往下降，像命令「去！」时的语气；要干脆利落，一口气降下来。"
+            ),
+            "practice_words": ["再见", "认识", "世界", "大树"],
+            "practice_pinyin": ["zài jiàn", "rèn shi", "shì jiè", "dà shù"],
+        },
+        5: {
+            "name": "轻声",
+            "tip": "读得又轻又短，依附在前一字后面，不要拖长或抬高调门。",
+            "practice_words": ["妈妈", "谢谢", "我们"],
+            "practice_pinyin": ["mā ma", "xiè xie", "wǒ men"],
+        },
+    }
+
+    if len(tone_counter) >= 2:
+        top_two = tone_counter.most_common(2)
+        tone_a, tone_b = top_two[0][0], top_two[1][0]
+        if {tone_a, tone_b} == {2, 3}:
+            return {
+                "error_pattern": "你在第二声和第三声的区分上需要加强",
+                "technique_tip": (
+                    "第二声：从低往高升（像「啊？」）。第三声：先往下压，再轻轻抬起来（像「哎——嗯！」）。"
+                    "关键区别：二声一路上升，三声先降后升。"
+                ),
+                "practice_words": ["老虎", "旅游", "语法", "美好"],
+                "practice_pinyin": ["lǎo hǔ", "lǚ yóu", "yǔ fǎ", "měi hǎo"],
+                "contrast_tip": "对比练习：「麻 má（二声上扬）」vs「马 mǎ（三声先降后升）」",
+            }
+
+    tone_info = tone_techniques.get(most_common_tone) or tone_techniques[3]
+    return {
+        "error_pattern": f"你在{tone_info['name']}上还需要加强",
+        "technique_tip": str(tone_info["tip"]),
+        "practice_words": list(tone_info["practice_words"]),
+        "practice_pinyin": list(tone_info["practice_pinyin"]),
+    }
 
 
 def _build_error_lines(syllables: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str]:

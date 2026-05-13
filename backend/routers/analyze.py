@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pypinyin import Style, lazy_pinyin, pinyin
 
-from services.deepseek_service import generate_feedback
+from services.deepseek_service import generate_feedback, generate_practice_recommendation
 from services.xunfei_ise import evaluate_pronunciation
 
 router = APIRouter(tags=["analyze"])
@@ -153,6 +153,8 @@ async def analyze_audio(
     if not isinstance(syllables_raw, list):
         syllables_raw = []
 
+    practice_recommendation = generate_practice_recommendation(syllables_raw)
+
     return {
         "success": True,
         "ref_text": ref_text,
@@ -160,4 +162,5 @@ async def analyze_audio(
         "grade": _grade_from_score(overall),
         "syllables": _build_syllables_response(syllables_raw),
         "feedback": _feedback_public(feedback),
+        "practice_recommendation": practice_recommendation,
     }

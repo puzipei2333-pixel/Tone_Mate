@@ -79,6 +79,15 @@ export default function App() {
     setRecorderKey((k) => k + 1);
   }, []);
 
+  const startPractice = useCallback((word) => {
+    const w = String(word ?? "").trim();
+    if (!w) return;
+    setRefText(w);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setResult(null);
+    window.alert(`已为你填入「${w}」，点击「开始录音」开始练习！`);
+  }, []);
+
   return (
     <div className="flex min-h-screen flex-col bg-gray-50 text-slate-900">
       <header className="border-b border-slate-200/80 bg-white px-4 py-4 shadow-sm">
@@ -148,7 +157,65 @@ export default function App() {
             ) : null}
           </section>
 
-          {result?.success ? <ResultPanel result={result} onReset={handleReset} /> : null}
+          {result?.success ? (
+            <>
+              <ResultPanel result={result} onReset={handleReset} />
+              {result.practice_recommendation ? (
+                <div className="mt-6 rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
+                  <h3 className="mb-2 text-lg font-bold text-blue-900">针对性练习推荐</h3>
+
+                  <div className="mb-3">
+                    <p className="text-sm font-semibold text-blue-800">
+                      {result.practice_recommendation.error_pattern}
+                    </p>
+                  </div>
+
+                  <div className="mb-3 rounded border border-blue-200 bg-white p-3">
+                    <p className="mb-1 text-xs text-gray-600">发音技巧</p>
+                    <p className="text-sm text-gray-800">
+                      {result.practice_recommendation.technique_tip}
+                    </p>
+                    {result.practice_recommendation.contrast_tip ? (
+                      <p className="mt-2 text-sm italic text-blue-600">
+                        {result.practice_recommendation.contrast_tip}
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mb-3">
+                    <p className="mb-2 text-xs text-gray-600">推荐练习词组</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(result.practice_recommendation.practice_words || []).map((word, idx) => (
+                        <button
+                          key={`${word}-${idx}`}
+                          type="button"
+                          onClick={() => startPractice(word)}
+                          className="rounded-lg border-2 border-blue-300 bg-white px-3 py-1.5 transition hover:bg-blue-100"
+                        >
+                          <span className="text-sm font-bold text-gray-800">{word}</span>
+                          <span className="ml-1 text-xs text-gray-600">
+                            ({(result.practice_recommendation.practice_pinyin || [])[idx] ?? "—"})
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {(result.practice_recommendation.practice_words || [])[0] ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        startPractice(result.practice_recommendation.practice_words[0])
+                      }
+                      className="w-full rounded-lg bg-blue-600 py-2 font-semibold text-white transition hover:bg-blue-700"
+                    >
+                      开始练习第一个词组
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
       </main>
 
