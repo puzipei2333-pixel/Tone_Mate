@@ -162,7 +162,7 @@ export default function App() {
               <ResultPanel result={result} onReset={handleReset} />
               {result.practice_recommendation ? (
                 <div className="mt-6 rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
-                  <h3 className="mb-2 text-lg font-bold text-blue-900">针对性练习推荐</h3>
+                  <h3 className="mb-2 text-lg font-bold text-blue-900">🎯 针对性练习推荐</h3>
 
                   <div className="mb-3">
                     <p className="text-sm font-semibold text-blue-800">
@@ -171,7 +171,7 @@ export default function App() {
                   </div>
 
                   <div className="mb-3 rounded border border-blue-200 bg-white p-3">
-                    <p className="mb-1 text-xs text-gray-600">发音技巧</p>
+                    <p className="mb-1 text-xs text-gray-600">💡 发音技巧：</p>
                     <p className="text-sm text-gray-800">
                       {result.practice_recommendation.technique_tip}
                     </p>
